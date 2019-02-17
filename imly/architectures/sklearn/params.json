@@ -15,8 +15,7 @@
         },
         "lda_1": {
             "units": 1,
-            "activation_1": "sigmoid",
-            "activation_4": "linear",
+            "activation": ["sigmoid", "linear"],
             "kernel_regularizer":"l2",
             "optimizer": "adam",
             "losses": "binary_crossentropy"

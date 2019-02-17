@@ -1,4 +1,6 @@
 from keras.wrappers.scikit_learn import KerasClassifier
+from utils.model_mapping import get_model_design
+from architectures.sklearn.model import create_model
 from optimizers.talos.talos import get_best_model
 import pickle, onnxmltools
 import numpy as np
@@ -32,16 +34,25 @@ class SklearnKerasClassifier(KerasClassifier):
             else:
                 raise ValueError('Invalid shape for y_train: ' + str(y_train.shape))
 
-            self.model, final_epoch, final_batch_size = get_best_model(x_train, y_train,
-                                                                       primal_data=primal_data,
-                                                                       params=self.params, 
-                                                                       val_metric=self.val_metric, 
-                                                                       metric=self.metric) 
-            self.model.fit(x_train, y_train, epochs=final_epoch,
-                           batch_size=final_batch_size, verbose=0)
+            if (primal_model.__class__.__name__ != 'LinearDiscriminantAnalysis'):
+                self.model, final_epoch, final_batch_size = get_best_model(x_train, y_train,
+                                                                        primal_data=primal_data,
+                                                                        params=self.params, 
+                                                                        val_metric=self.val_metric, 
+                                                                        metric=self.metric) 
+                self.model.fit(x_train, y_train, epochs=final_epoch,
+                               batch_size=final_batch_size, verbose=0)
+
+            # Temporarily bypassing Talos optimization for LDA
+            else:
+                fn_name, param_name = get_model_design(primal_data['model_name'])
+                mapping_instance = create_model(fn_name=fn_name, param_name=param_name)
+                self.model = mapping_instance.__call__(x_train=x_train)
+                self.model.fit(x_train, y_train, epochs=500, batch_size=100)
+
             final_model = self.model
             return final_model
- 
+
         def save(self, using='dnn'):
             if using == 'sklearn':
                 filename = 'scikit_model'

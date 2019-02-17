@@ -95,20 +95,14 @@
         "optimizer": [
           "adam"
         ],
-        "losses": [
-          "binary_crossentropy"
-        ],
-        "activation_1": [
-          "sigmoid"
-        ],
-        "activation_4": [
+        "activation": [
           "sigmoid"
         ],
         "kernel_regularizer":[
           "l2"
         ]
       },
-      "val_metric": "val_loss",
+      "val_metric": "loss",
       "metric": "accuracy"
     }
   }

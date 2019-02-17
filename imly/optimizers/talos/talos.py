@@ -29,6 +29,9 @@ def get_best_model(x_train, y_train, **kwargs):
                 grid_downsample=0.5)
 
     report = h.data
+
+    print(report)
+
     best_model = report.sort_values(val_metric, ascending=True).iloc[0]
     best_model_id = best_model.name - 1
     dnn_model = activate_model(h, best_model_id)
