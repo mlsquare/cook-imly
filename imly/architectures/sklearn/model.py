@@ -19,29 +19,13 @@ class create_model:
         except KeyError:
             print('Invalid model name passed to mapping_data')
 
-        try:
-            model = function(param_name=self.param_name,
-                             x_train=kwargs['x_train'],
-                             params=kwargs['params'])
-        except KeyError:
-            # TODO
-            # 1) Error handling missing. What happens if the user
-            # sends w/o setting x_train of the object?
-            # 2) Looks like this use case is not meaningful anymore.
-            # Cross check and remove.
-            model = function(param_name=self.param_name, x_train=self.x_train)
+        model = function(param_name=self.param_name,
+                         x_train=kwargs['x_train'],
+                         params=kwargs['params'])
         return model
 
 
-def glm(**kwargs):  # Should param_name be optional or mandatory?
-
-    # This if statement is temporary and will be removed in the packaging-refactoring phase.
-    if __name__ != '__main__':
-        os.chdir('/home/shakkeel/Desktop/mlsquare/cook-imly/imly')
-
-    params_json = json.load(open('../imly/architectures/sklearn/params.json'))
-    params = params_json['params'][kwargs['param_name']]
-    kwargs.setdefault('params', params)    
+def glm(**kwargs):
 
     model = Sequential()
     model.add(Dense(kwargs['params']['units'],
@@ -56,11 +40,6 @@ def glm(**kwargs):  # Should param_name be optional or mandatory?
 
 
 def lda(**kwargs):
-
-    params_json = json.load(open('../imly/architectures/sklearn/params.json'))
-    params = params_json['params'][kwargs['param_name']]
-
-    kwargs.setdefault('params', params)
 
     model = Sequential()
     model.add(Dense(kwargs['params']['units'],

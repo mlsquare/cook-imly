@@ -18,10 +18,6 @@ def dope(model, **kwargs):
     """
     model_name = model.__class__.__name__
     kwargs.setdefault('using', 'dnn')
-    params_json = json.load(open('../imly/optimizers/talos/params.json'))
-    params = params_json['params'][model_name]['config']
-    kwargs.setdefault('params', params)
-    search_params = {**params, **kwargs['params']}
 
     # Map model name to it's respective wrapper
     wrapper_mapping_json = json.load(open('../imly/wrappers/keras_wrapper_mapping.json'))
@@ -39,11 +35,6 @@ def dope(model, **kwargs):
     wrapper_module = __import__(module_path, fromlist=[wrapper_class])
     wrapper_class = getattr(wrapper_module, wrapper_class)
 
-    # val_metric -- to sort best model from Talos
-    kwargs.setdefault('val_metric', params_json['params'][model_name]['val_metric'])
-    # metric -- to be passed while final model is compiled
-    kwargs.setdefault('metric', params_json['params'][model_name]['metric'])
-
     if kwargs['using'] == 'dnn':
         # TODO
         # Rename model, since it's causing confusion at line 63
@@ -53,17 +44,13 @@ def dope(model, **kwargs):
 
         build_fn = create_model(fn_name, param_name)
 
+        params_json = json.load(open('../imly/architectures/sklearn/params.json'))
+        params = params_json['params'][param_name] 
+        # This params can be overwritten by the user only at the wrapper's fit method.
+
+        # Params is loaded at 'dope' level to avoid redundant code within
+        # each wrapper.
         model = wrapper_class(build_fn=build_fn, primal=primal,
-                              params=search_params,
-                              val_metric=kwargs['val_metric'],
-                              metric=kwargs['metric'])
+                              params=params)
 
     return model
-
-# TODO
-# Idea of supporting multiple of backends for ONNX
-# Restructure the backend aspect
-# Add more class(mapping algorithms)
-# Importing Keras from a middle package
-# Multiple cuts(params, model arch and hyperparams)
-# Test commit - testing 'push' to 'dev'

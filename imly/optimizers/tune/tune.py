@@ -1,6 +1,12 @@
 from utils.model_mapping import get_model_design
 from architectures.sklearn.model import create_model
-import os, json, copy
+import os
+import json
+import copy
+# from ..tune.params import glm_1
+from keras import Sequential
+from keras.layers.core import Dense
+from ray.tune.suggest import HyperOptSearch
 # Initialize tune
 
 import ray
@@ -17,10 +23,6 @@ def get_best_model(x_train, y_train, **kwargs):
 
     mapping_instance = create_model(fn_name=fn_name, param_name=param_name)
 
-    os.chdir('/home/shakkeel/Desktop/mlsquare/cook-imly/imly')
-    params_json = json.load(open('../imly/optimizers/tune/params.json'))
-    params = params_json['params'][model_name]['config']
-
     def train_model(config, reporter):
         '''
         This function is used by Tune to train the model with each iteration variations.
@@ -32,45 +34,53 @@ def get_best_model(x_train, y_train, **kwargs):
             which the iterations should be optimized.
         '''
 
-        model = mapping_instance.__call__(x_train=x_train, params=params)  # Fix!
-
+        model = mapping_instance.__call__(x_train=x_train, params=config)
         model.fit(x_train, y_pred)
         accuracy = model.evaluate(x_train, y_pred)[1]
         reporter(mean_accuracy=accuracy)
 
 
-    # define experiment config
-    configuration = tune.Experiment(
-        # TODO
-        # load config from params.json
-        # change search algo to hyperopt
-        "experiment_name",
-        run=train_model,
-        resources_per_trial={"cpu": 4},
-        stop={"mean_accuracy": 95},
-        config={
-            "optimizer": tune.grid_search(['adam', 'nadam']) # Edit to accept params.json
-        }
-    )
+    # Define experiment configuration
+    configuration = tune.Experiment("experiment_name",
+                                    run=train_model,
+                                    resources_per_trial={"cpu": 4},
+                                    stop={"mean_accuracy": 95},
+                                    config=kwargs['params'])
 
-    trials = tune.run_experiments(configuration, verbose=2)
+    # This validation is to check if the user has opted for hyperopt search method
+    if kwargs['space']:
+        print('hyperopt choosen-------')
+        space = kwargs['space']
+        hyperopt_search = HyperOptSearch(space, reward_attr="mean_accuracy")
+        # TODO
+        # Should this wrapper be avoided(instead the user passes the HyperOptSearch).
+        # Add other args for hyperopt search.
+        # Add the remaining search_algos if necessary.
+        trials = tune.run_experiments(configuration,
+                                      search_alg=hyperopt_search, verbose=2)
+
+    else:
+        trials = tune.run_experiments(configuration, verbose=2)
+        print('Else path triggered --')
+
     metric = "mean_accuracy"
 
     """Restore a model from the best trial."""
-    sorted_trials = get_sorted_trials(trials, metric)
-    for best_trial in sorted_trials:
-        try:
-            print("Creating model...")
-            best_model = mapping_instance.__call__(x_train=x_train, params=params)  # TODO Pass config as argument
-            weights = os.path.join(best_trial.logdir, best_trial.last_result["checkpoint"])
-            print("Loading from", weights)
-            best_model.load_weights(weights)  # TODO Validate this loaded model.
-            break
-        except Exception as e:
-            print(e, "from tuner")
-            print("Loading failed. Trying next model")
+    # sorted_trials = get_sorted_trials(trials, metric)
+    # for best_trial in sorted_trials:
+    #     try:
+    #         print("Creating model...")
+    #         # best_model = mapping_instance.__call__(x_train=x_train, params=params)  # TODO Pass config as argument
+    #         best_model = make_model(None)
+    #         weights = os.path.join(best_trial.logdir, best_trial.last_result["checkpoint"])
+    #         print("Loading from", weights)
+    #         best_model.load_weights(weights)  # TODO Validate this loaded model.
+    #         break
+    #     except Exception as e:
+    #         print(e, "from tuner")
+    #         print("Loading failed. Trying next model")
 
-    return best_model
+    # return best_model
 
 
 # Utils from Tune tutorials(Not a part of the Tune package)#

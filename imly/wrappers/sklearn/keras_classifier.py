@@ -11,11 +11,11 @@ class SklearnKerasClassifier(KerasClassifier):
             super(KerasClassifier, self).__init__(build_fn=build_fn)
             self.primal = kwargs['primal']
             self.params = kwargs['params']
-            self.val_metric = kwargs['val_metric']
-            self.metric = kwargs['metric']
 
         def fit(self, x_train, y_train, **kwargs):
             print('Keras classifier chosen')
+            kwargs.setdefault('params', self.params) # This params is to hold the values passed by the user
+            kwargs.setdefault('space', False)
             primal_model = self.primal
             primal_model.fit(x_train, y_train)
             y_pred = primal_model.predict(x_train)
@@ -23,6 +23,8 @@ class SklearnKerasClassifier(KerasClassifier):
                 'y_pred': y_pred,
                 'model_name': primal_model.__class__.__name__
             }
+            hyperopt_space = kwargs['space']
+            self.params.update(kwargs['params']) # Merging params passed by user(if any) to the default params
 
             '''
             Note -
@@ -40,13 +42,16 @@ class SklearnKerasClassifier(KerasClassifier):
             else:
                 raise ValueError('Invalid shape for y_train: ' + str(y_train.shape))
 
-            
             # Search for best model using Tune
             self.model = get_best_model(x_train, y_train,
                                         primal_data=primal_data,
-                                        params=self.params)
+                                        params=self.params, space=hyperopt_space)
             self.model.fit(x_train, y_train, epochs=200,
                            batch_size=30, verbose=0)
+
+            # TODO
+            # Add a validation to check if the user has opted for 
+            # optimization. If not, call 'fit' from KerasClassifier.
 
             final_model = self.model
             return final_model
