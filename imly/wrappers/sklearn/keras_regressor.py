@@ -22,12 +22,20 @@ class SklearnKerasRegressor(KerasRegressor):
             hyperopt_space = kwargs['space']
             self.params.update(kwargs['params']) # Merging params passed by user(if any) to the default params            
 
-            # Search for best model using Tune
-            self.model = get_best_model(x_train, y_train,
-                                        primal_data=primal_data,
-                                        params=self.params, space=hyperopt_space)
-            self.model.fit(x_train, y_train, epochs=200,
-                           batch_size=30, verbose=0)
+            if (kwargs['params']!=self.params or kwargs['space']):
+                # Search for best model using Tune
+                self.model = get_best_model(x_train, y_train,
+                                            primal_data=primal_data,
+                                            params=self.params, space=hyperopt_space)
+                self.model.fit(x_train, y_train, epochs=200,
+                               batch_size=30, verbose=0)
+            else:
+                # This else case is triggred if the user opts out of optimization
+                mapping_instance = self.build_fn
+                # build_fn passed from dope holds the class instance with param_name and fn_name.
+                # Hence, mapping variables are already available.
+                self.model = mapping_instance.__call__(x_train=x_train, params=kwargs['params'])
+                self.model.fit(x_train, y_pred)                
 
             # TODO
             # Add a validation to check if the user has opted for 

@@ -1,6 +1,4 @@
 from keras.wrappers.scikit_learn import KerasClassifier
-from utils.model_mapping import get_model_design
-from architectures.sklearn.model import create_model
 from optimizers.tune.tune import get_best_model
 import pickle, onnxmltools
 import numpy as np
@@ -14,7 +12,8 @@ class SklearnKerasClassifier(KerasClassifier):
 
         def fit(self, x_train, y_train, **kwargs):
             print('Keras classifier chosen')
-            kwargs.setdefault('params', self.params) # This params is to hold the values passed by the user
+            kwargs.setdefault('params', self.params)
+            # This params is to hold the values passed by the user
             kwargs.setdefault('space', False)
             primal_model = self.primal
             primal_model.fit(x_train, y_train)
@@ -24,7 +23,8 @@ class SklearnKerasClassifier(KerasClassifier):
                 'model_name': primal_model.__class__.__name__
             }
             hyperopt_space = kwargs['space']
-            self.params.update(kwargs['params']) # Merging params passed by user(if any) to the default params
+            self.params.update(kwargs['params'])
+            # Merging params passed by user(if any) to the default params
 
             '''
             Note -
@@ -43,12 +43,20 @@ class SklearnKerasClassifier(KerasClassifier):
             else:
                 raise ValueError('Invalid shape for y_train: ' + str(y_train.shape))
 
-            # Search for best model using Tune
-            self.model = get_best_model(x_train, y_train,
-                                        primal_data=primal_data,
-                                        params=self.params, space=hyperopt_space)
-            self.model.fit(x_train, y_train, epochs=200,
-                           batch_size=30, verbose=0)
+            if (kwargs['params']!=self.params or kwargs['space']):
+                ## Search for best model using Tune ##
+                self.model = get_best_model(x_train, y_train,
+                                            primal_data=primal_data,
+                                            params=self.params, space=hyperopt_space)
+                self.model.fit(x_train, y_train, epochs=200,
+                               batch_size=30, verbose=0)
+            else:
+                # This else case is triggred if the user opts out of optimization
+                mapping_instance = self.build_fn
+                # build_fn passed from dope holds the class instance with param_name and fn_name.
+                # Hence, mapping variables are already available.
+                self.model = mapping_instance.__call__(x_train=x_train, params=kwargs['params'])
+                self.model.fit(x_train, y_pred)
 
             # TODO
             # Add a validation to check if the user has opted for 
