@@ -87,4 +87,4 @@ def get_sorted_trials(trial_list, metric):
 # TODO
 # Generalize metric choice.
 # Add compatibility for linReg and LDA.
-# Validate the loaded model.
+# Validate the loaded model(How?).

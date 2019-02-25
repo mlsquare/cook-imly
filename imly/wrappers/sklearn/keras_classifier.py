@@ -31,6 +31,7 @@ class SklearnKerasClassifier(KerasClassifier):
             This is to update the 'classes_' variable used in keras_regressor.
             'classes_' variable is used by the score function of keras_regressor.
             An alternate option would be to create our own score function.
+            Move this to a wrapper score.
             '''
 
             y_train = np.array(y_train)
@@ -60,8 +61,3 @@ class SklearnKerasClassifier(KerasClassifier):
             else:
                 onnx_model = onnxmltools.convert_keras(self.model)
                 return onnx_model
-
-        # def predict_classes(self, x):
-        #     predicted_classes = self.model.predict_classes(x)
-        #     print(predicted_classes)
-        #     return predicted_classes
