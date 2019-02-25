@@ -53,9 +53,6 @@ class SklearnKerasClassifier(KerasClassifier):
             # Add a validation to check if the user has opted for 
             # optimization. If not, call 'fit' from KerasClassifier.
 
-            final_model = self.model
-            return final_model
-
         def save(self, using='dnn'):
             if using == 'sklearn':
                 filename = 'scikit_model'

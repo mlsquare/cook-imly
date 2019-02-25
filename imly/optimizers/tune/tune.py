@@ -1,14 +1,9 @@
 from utils.model_mapping import get_model_design
 from architectures.sklearn.model import create_model
 import os
-import json
-import copy
-# from ..tune.params import glm_1
-from keras import Sequential
-from keras.layers.core import Dense
 from ray.tune.suggest import HyperOptSearch
-# Initialize tune
 
+# Initialize ray
 import ray
 from ray import tune
 
@@ -36,8 +31,10 @@ def get_best_model(x_train, y_train, **kwargs):
 
         model = mapping_instance.__call__(x_train=x_train, params=config)
         model.fit(x_train, y_pred)
+        last_checkpoint = "weights_tune_{}.h5".format(config)
+        model.save_weights(last_checkpoint)
         accuracy = model.evaluate(x_train, y_pred)[1]
-        reporter(mean_accuracy=accuracy)
+        reporter(mean_accuracy=accuracy, checkpoint=last_checkpoint)
 
 
     # Define experiment configuration
@@ -61,36 +58,33 @@ def get_best_model(x_train, y_train, **kwargs):
 
     else:
         trials = tune.run_experiments(configuration, verbose=2)
-        print('Else path triggered --')
 
     metric = "mean_accuracy"
 
     """Restore a model from the best trial."""
-    # sorted_trials = get_sorted_trials(trials, metric)
-    # for best_trial in sorted_trials:
-    #     try:
-    #         print("Creating model...")
-    #         # best_model = mapping_instance.__call__(x_train=x_train, params=params)  # TODO Pass config as argument
-    #         best_model = make_model(None)
-    #         weights = os.path.join(best_trial.logdir, best_trial.last_result["checkpoint"])
-    #         print("Loading from", weights)
-    #         best_model.load_weights(weights)  # TODO Validate this loaded model.
-    #         break
-    #     except Exception as e:
-    #         print(e, "from tuner")
-    #         print("Loading failed. Trying next model")
+    sorted_trials = get_sorted_trials(trials, metric)
+    for best_trial in sorted_trials:
+        try:
+            print("Creating model...")
+            best_model = mapping_instance.__call__(x_train=x_train, params=best_trial.config)  # TODO Pass config as argument
+            # best_model = make_model(None)
+            weights = os.path.join(best_trial.logdir, best_trial.last_result["checkpoint"])
+            print("Loading from", weights)
+            best_model.load_weights(weights)  # TODO Validate this loaded model.
+            break
+        except Exception as e:
+            print(e)
+            print("Loading failed. Trying next model")
 
-    # return best_model
+    return best_model
 
 
-# Utils from Tune tutorials(Not a part of the Tune package)#
+# Utils from Tune tutorials(Not a part of the Tune package) #
 
 def get_sorted_trials(trial_list, metric):
     return sorted(trial_list, key=lambda trial: trial.last_result.get(metric, 0), reverse=True)
 
 # TODO
-# Add params.
 # Generalize metric choice.
-# Add compatibility for logReg and LDA.
+# Add compatibility for linReg and LDA.
 # Validate the loaded model.
-# Currently using grid search. Use hyperopt as the search algorithm.
