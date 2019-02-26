@@ -1,3 +1,8 @@
+from numpy.random import seed
+seed(3)
+from tensorflow import set_random_seed
+set_random_seed(3)
+
 from keras.wrappers.scikit_learn import KerasClassifier
 from optimizers.tune.tune import get_best_model
 import pickle, onnxmltools

@@ -1,6 +1,11 @@
+from numpy.random import seed
+seed(3)
+from tensorflow import set_random_seed
+set_random_seed(3)
+
 from keras.models import Sequential
 from keras.layers.core import Dense
-# from utils.losses import lda_loss
+from utils.losses import lda_loss
 from keras.regularizers import l2
 import json, os
 
@@ -47,8 +52,8 @@ def lda(**kwargs):
                     activation=kwargs['params']['activation'][0],
                     kernel_regularizer=l2(1e-5)))
     model.compile(optimizer=kwargs['params']['optimizer'],
-                #   loss=lda_loss(n_components=1, margin=1),
-                  loss='mse',
+                  loss=lda_loss(n_components=1, margin=1),
+                #   loss='mse',
                   metrics=['accuracy'])
     # Metrics is usually provided through Talos.
     # Since we are bypassing Talos for LDA, we add the metrics directly.

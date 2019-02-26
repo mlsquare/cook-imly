@@ -1,3 +1,8 @@
+from numpy.random import seed
+seed(3)
+from tensorflow import set_random_seed
+set_random_seed(3)
+
 from utils.model_mapping import get_model_design
 from architectures.sklearn.model import create_model
 import os
@@ -7,7 +12,11 @@ from ray.tune.suggest import HyperOptSearch
 import ray
 from ray import tune
 
-ray.init(ignore_reinit_error=True)
+ray.init(ignore_reinit_error=True, redis_max_memory=20000000000, object_store_memory=1000000000,
+         num_cpus=4)
+# redis_max_memory=
+# 12000000000
+# 3847819264
 
 
 def get_best_model(x_train, y_train, **kwargs):

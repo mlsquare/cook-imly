@@ -118,6 +118,7 @@ def run_imly(dataset_info, model_name, X, Y, test_size, **kwargs):
     # Remove model_name from arguments. This data is available
     # in dataset_info['activation_fn']
     kwargs.setdefault('return_exp_results', False)
+    kwargs.setdefault('space', False)
     correlation = 'NA'
     fig_url = 'NA'
     kwargs.setdefault('params', {})
@@ -129,7 +130,7 @@ def run_imly(dataset_info, model_name, X, Y, test_size, **kwargs):
             name = value
 
     # module = __import__('sklearn.linear_model', fromlist=[name])
-    module = __import__('sklearn.discriminant_analysis', fromlist=[name])
+    module = __import__('sklearn.discriminant_analysis', fromlist=[name]) # Find a fix!
     imported_module = getattr(module, name)
     model = imported_module
     model_instance = model()
@@ -149,8 +150,14 @@ def run_imly(dataset_info, model_name, X, Y, test_size, **kwargs):
 
     # Keras
     x_train = x_train.values  # Talos accepts only numpy arrays
-    m = dope(base_model, params=kwargs['params'])
-    m.fit(x_train, y_train.values.ravel())
+    m = dope(base_model)
+    if kwargs['params'] == {} and kwargs['space'] == False:
+        m.fit(x_train, y_train.values.ravel())
+    elif kwargs['space']:
+        m.fit(x_train, y_train.values.ravel(), space=kwargs['space'])
+    else:
+        m.fit(x_train, y_train.values.ravel(), params=kwargs['params'])
+
     keras_score = m.score(x_test, y_test)
 
     # Create plot and write to s3 bucket #
@@ -297,3 +304,6 @@ def write_plot_to_s3(fig_path, fig_name):
                                  cb=percent_cb, num_cb=10)  # upload file
     url = k.generate_url(expires_in=0, query_auth=False)
     return url
+
+# TODO
+# Add options in the sheet for test case runs.
