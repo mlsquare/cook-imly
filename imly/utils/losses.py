@@ -74,3 +74,7 @@ def lda_loss(n_components, margin):
         return -costs
 
     return inner_lda_objective
+
+
+def mse_in_theano(y_true, y_pred):
+    return T.mean(T.square(y_pred - y_true), axis=-1)
