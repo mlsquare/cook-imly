@@ -2,3 +2,4 @@ data/
 /Notebooks/.ipynb_checkpoints/
 .vscode/
 __pycache__/
+.ipynb_checkpoints

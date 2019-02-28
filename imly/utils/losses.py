@@ -2,6 +2,8 @@ import theano.tensor as T
 import theano
 import numpy as np
 from theano.compile.ops import as_op
+from theano.compile.nanguardmode import NanGuardMode
+from theano.compile.debugmode import DebugMode
 
 
 @as_op(itypes=[theano.tensor.ivector],
@@ -36,7 +38,10 @@ def lda_loss(n_components, margin):
 
         # scan over groups
         covs_t, updates = theano.scan(fn=compute_cov, outputs_info=None,
-                                      sequences=[groups], non_sequences=[y_pred, yt])
+                                      sequences=[groups], non_sequences=[y_pred, yt],
+                                    #   mode=NanGuardMode(nan_is_error=True, inf_is_error=True, big_is_error=True),
+                                      mode='DebugMode'
+                                      )
 
         # compute average covariance matrix (within scatter)
         Sw_t = T.mean(covs_t, axis=0)
@@ -69,3 +74,7 @@ def lda_loss(n_components, margin):
         return -costs
 
     return inner_lda_objective
+
+
+def mse_in_theano(y_true, y_pred):
+    return T.mean(T.square(y_pred - y_true), axis=-1)
