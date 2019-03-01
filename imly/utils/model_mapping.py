@@ -10,7 +10,7 @@ def get_model_design(name):
     # Returns:
         The function name and param name mapped to the primal model
     """
-    mapping_data = json.load(open('../imly/utils/mapping.json'))
+    mapping_data = json.load(open('../imly/utils/model_params_mapping.json'))
 
     try:
         fn_name = mapping_data[name]['model']

@@ -4,6 +4,7 @@ from tensorflow import set_random_seed
 set_random_seed(3)
 
 from keras.wrappers.scikit_learn import KerasClassifier
+from keras.utils import to_categorical
 from optimizers.tune.tune import get_best_model
 import pickle, onnxmltools
 import numpy as np
@@ -17,19 +18,29 @@ class SklearnKerasClassifier(KerasClassifier):
 
         def fit(self, x_train, y_train, **kwargs):
             print('Keras classifier chosen')
-            kwargs.setdefault('params', self.params)
             # This params is to hold the values passed by the user
+            kwargs.setdefault('params', self.params)
             kwargs.setdefault('space', False)
             primal_model = self.primal
             primal_model.fit(x_train, y_train)
             y_pred = primal_model.predict(x_train)
+            primal_model_name = primal_model.__class__.__name__
+
+            # Update class_name with 'Multiclass'
+            # class_name is used to retrieve the model-param mapping
+            # model-param mapping available at imly/utils/model_params_mapping.json
+            if primal_model.classes_.shape[0] != 2:
+                primal_model_name = primal_model.__class__.__name__ + 'MultiClass'
+                y_train = to_categorical(y_train)
+
             primal_data = {
                 'y_pred': y_pred,
-                'model_name': primal_model.__class__.__name__
+                'model_name': primal_model_name
             }
             hyperopt_space = kwargs['space']
-            self.params.update(kwargs['params'])
+
             # Merging params passed by user(if any) to the default params
+            self.params.update(kwargs['params'])
 
             '''
             Note -
@@ -48,7 +59,7 @@ class SklearnKerasClassifier(KerasClassifier):
             else:
                 raise ValueError('Invalid shape for y_train: ' + str(y_train.shape))
 
-            if (kwargs['params']!=self.params or kwargs['space']):
+            if (kwargs['params'] != self.params or kwargs['space']):
                 ## Search for best model using Tune ##
                 self.model = get_best_model(x_train, y_train,
                                             primal_data=primal_data,

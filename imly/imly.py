@@ -17,6 +17,7 @@ def dope(model, **kwargs):
         The transpiled model.
     """
     model_name = model.__class__.__name__
+    print(model_name)
     kwargs.setdefault('using', 'dnn')
 
     # Map model name to it's respective wrapper
@@ -25,6 +26,7 @@ def dope(model, **kwargs):
         for name in value:
             if model_name == name:
                 wrapper_class = key
+                print(wrapper_class)
 
     # Extract the wrapper_class using the wrapper_name
     path = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', wrapper_class)

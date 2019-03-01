@@ -19,6 +19,12 @@
             "kernel_regularizer":"l2",
             "optimizer": "adam",
             "losses": "binary_crossentropy"
+        },
+        "log_reg_multi_class": {
+            "units": 1,
+            "activation": "sigmoid",
+            "optimizer": "adam",
+            "losses": "categorical_crossentropy"
         }
     }
 }

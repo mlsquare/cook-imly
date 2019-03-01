@@ -10,5 +10,9 @@
     "LinearDiscriminantAnalysis": {
         "model": "lda",
         "param": "lda_1"
+    },
+    "LogisticRegressionMultiClass": {
+        "model": "glm",
+        "param": "log_reg_multi_class"
     }
 }

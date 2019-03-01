@@ -129,8 +129,8 @@ def run_imly(dataset_info, model_name, X, Y, test_size, **kwargs):
         if key == model_name:
             name = value
 
-    # module = __import__('sklearn.linear_model', fromlist=[name])
-    module = __import__('sklearn.discriminant_analysis', fromlist=[name]) # Find a fix!
+    module = __import__('sklearn.linear_model', fromlist=[name])
+    # module = __import__('sklearn.discriminant_analysis', fromlist=[name]) # Find a fix!
     imported_module = getattr(module, name)
     model = imported_module
     model_instance = model()
