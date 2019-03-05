@@ -1,8 +1,3 @@
-from numpy.random import seed
-seed(3)
-from tensorflow import set_random_seed
-set_random_seed(3)
-
 from keras.models import Sequential
 from keras.layers.core import Dense
 from utils.losses import mse_in_theano
@@ -25,6 +20,7 @@ class create_model:
             print('Invalid model name passed to mapping_data')
 
         model = function(param_name=self.param_name,
+                         y_train=kwargs['y_train'],
                          x_train=kwargs['x_train'],
                          params=kwargs['params'])
         return model
@@ -33,7 +29,7 @@ class create_model:
 def glm(**kwargs):
 
     model = Sequential()
-    model.add(Dense(kwargs['params']['units'],
+    model.add(Dense(kwargs['y_train'].shape[1],
                     input_dim=kwargs['x_train'].shape[1],
                     activation=kwargs['params']['activation']))
 

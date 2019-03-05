@@ -62,7 +62,7 @@ def get_keras_params(X,Y,predictions,data_info,config):
     from keras.utils import np_utils
 
     x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.60, random_state=0)
-    np.random.seed(7)
+    np.random.seed(7) # Why?
 
     # Defining model #
     if data_info['activation_function'] == "Logistic regression":

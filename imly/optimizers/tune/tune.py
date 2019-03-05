@@ -1,8 +1,3 @@
-from numpy.random import seed
-seed(3)
-from tensorflow import set_random_seed
-set_random_seed(3)
-
 from utils.model_mapping import get_model_design
 from architectures.sklearn.model import create_model
 import os
@@ -38,7 +33,7 @@ def get_best_model(x_train, y_train, **kwargs):
             which the iterations should be optimized.
         '''
 
-        model = mapping_instance.__call__(x_train=x_train, params=config)
+        model = mapping_instance.__call__(x_train=x_train, y_train=y_pred, params=config)
         model.fit(x_train, y_pred)
         last_checkpoint = "weights_tune_{}.h5".format(config)
         model.save_weights(last_checkpoint)
@@ -75,7 +70,7 @@ def get_best_model(x_train, y_train, **kwargs):
     for best_trial in sorted_trials:
         try:
             print("Creating model...")
-            best_model = mapping_instance.__call__(x_train=x_train, params=best_trial.config)  # TODO Pass config as argument
+            best_model = mapping_instance.__call__(x_train=x_train, y_train=y_pred, params=best_trial.config)  # TODO Pass config as argument
             # best_model = make_model(None)
             weights = os.path.join(best_trial.logdir, best_trial.last_result["checkpoint"])
             print("Loading from", weights)
