@@ -123,7 +123,8 @@ def run_imly(dataset_info, model_name, X, Y, test_size, **kwargs):
     fig_url = 'NA'
     kwargs.setdefault('params', {})
     x_train, x_test, y_train, y_test = train_test_split(
-        X, Y, test_size=test_size, random_state=0)
+        X, Y, stratify=Y,
+        test_size=test_size, random_state=0)
 
     for key, value in model_mappings.items():
         if key == model_name:
@@ -149,14 +150,17 @@ def run_imly(dataset_info, model_name, X, Y, test_size, **kwargs):
     primal_params = primal_model.get_params(deep=True)
 
     # Keras
-    x_train = x_train.values  # Talos accepts only numpy arrays
+    # x_train = x_train.values  # Talos accepts only numpy arrays
     m = dope(base_model)
     if kwargs['params'] == {} and kwargs['space'] == False:
         m.fit(x_train, y_train.values.ravel())
+        m.fit(x_train, y_train)
     elif kwargs['space']:
-        m.fit(x_train, y_train.values.ravel(), space=kwargs['space'])
+        # m.fit(x_train, y_train.values.ravel(), space=kwargs['space'])
+        m.fit(x_train, y_train, space=kwargs['space'])
     else:
-        m.fit(x_train, y_train.values.ravel(), params=kwargs['params'])
+        # m.fit(x_train, y_train.values.ravel(), params=kwargs['params'])
+        m.fit(x_train, y_train, params=kwargs['params'])
 
     keras_score = m.score(x_test, y_test)
 

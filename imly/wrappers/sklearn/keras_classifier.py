@@ -14,7 +14,8 @@ class SklearnKerasClassifier(KerasClassifier):
         super(KerasClassifier, self).__init__(build_fn=build_fn)
         self.primal = kwargs['primal']
         self.params = kwargs['params']
-        self.encoder = OneHotEncoder()
+        self.encoder = OneHotEncoder(handle_unknown='error')
+        self.classification_type = 'binary'
 
     def fit(self, x_train, y_train, **kwargs):
         print('Keras classifier chosen')
@@ -31,6 +32,7 @@ class SklearnKerasClassifier(KerasClassifier):
         # class_name is used to retrieve the model-param mapping
         # model-param mapping available at imly/utils/model_params_mapping.json
         if primal_model.classes_.shape[0] != 2:
+            self.classification_type = 'multiclass'
             primal_model_name = primal_model.__class__.__name__ + 'MultiClass'
             '''
             Notes on encoding -
@@ -92,9 +94,6 @@ class SklearnKerasClassifier(KerasClassifier):
         # Add a validation to check if the user has opted for
         # optimization. If not, call 'fit' from KerasClassifier.
 
-    # def score(self, x_test, y_test):
-    #     pass
-
     def save(self, using='dnn'):
         if using == 'sklearn':
             filename = 'scikit_model'
@@ -107,5 +106,21 @@ class SklearnKerasClassifier(KerasClassifier):
         return self.model.summary()
 
     def score(self, x_test, y_test):
-        y_test = self.encoder.transform(y_test)
-        return self.model.evaluate(x_test, y_test)
+        # TODO 
+        # 1) Raise error if y_test contains unknown
+        # labels. IMP
+        # 2) Cross check this implementation on Binary classification
+        # 3) Transform if multiclass
+        # 4) Cross check the value returned by evaluate
+        if self.classification_type == 'multiclass':
+            try:
+                y_test = self.encoder.transform(y_test)
+            except ValueError as error:
+                # print(error)
+                print("This usually happens if your test_train_split is not stratified.\
+                Try using a stratified test_train_split.")
+                raise error
+
+        score = self.model.evaluate(x_test, y_test)
+        print(score)
+        return score[1]
