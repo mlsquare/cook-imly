@@ -54,3 +54,8 @@ def dope(model, **kwargs):
                               params=params)
 
     return model
+
+# TODO
+# Add data validation. Data input standards not clear
+# in the current flow.
+

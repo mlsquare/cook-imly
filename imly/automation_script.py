@@ -153,7 +153,7 @@ def run_imly(dataset_info, model_name, X, Y, test_size, **kwargs):
     # x_train = x_train.values  # Talos accepts only numpy arrays
     m = dope(base_model)
     if kwargs['params'] == {} and kwargs['space'] == False:
-        m.fit(x_train, y_train.values.ravel())
+        # m.fit(x_train, y_train.values.ravel())
         m.fit(x_train, y_train)
     elif kwargs['space']:
         # m.fit(x_train, y_train.values.ravel(), space=kwargs['space'])
