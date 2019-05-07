@@ -80,6 +80,7 @@ def get_best_model(x_train, y_train, **kwargs):
             print(e)
             print("Loading failed. Trying next model")
 
+    ray.shutdown() # Causing issues "last heartbeat seen..."
     return best_model
 
 

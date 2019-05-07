@@ -27,7 +27,10 @@ class create_model:
 
 
 def glm(**kwargs):
-
+    # Temporary fix to bypass binary datasets. This reshapes
+    # 'y_train' from one dim np array to two dim np array
+    if len(kwargs['y_train'].shape) == 1:
+        kwargs['y_train'] = kwargs['y_train'].reshape(-1, 1)
     model = Sequential()
     model.add(Dense(kwargs['y_train'].shape[1],
                     input_dim=kwargs['x_train'].shape[1],
