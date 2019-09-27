@@ -97,18 +97,9 @@ def lda_loss(n_components, margin):
         Note: it is implemented by Theano tensor operations, and does not work on Tensorflow backend
         """
         r = 1e-4
-        print("in lda inner loop")
-        print(y_true)
-        print(y_pred)
-
-        # init groups
-        # yt = tf.cast(tf.contrib.layers.flatten(y_true), tf.float32)
-        # indexes = tf.argmax (y_true, axis=-1)
         locations = tf.where(tf.equal(y_true, 1))
         indices = locations[:, 1]
         y, idx = tf.unique(indices)
-
-        print(locations)
 
         def fn(unique, indexes, preds):
             u_indexes = tf.where(tf.equal(unique, indexes))
@@ -134,16 +125,16 @@ def lda_loss(n_components, margin):
         Sb_t = St_t - Sw_t
 
         # cope for numerical instability (regularize)
-
         Sw_t += tf.eye(dim) * r
 
+       
         ''' START : COMPLICATED PART WHERE TENSORFLOW HAS TROUBLE'''
 
         #cho = tf.eye(dim)
         # look at page 383
         # http://perso.ens-lyon.fr/patrick.flandrin/LedoitWolf_JMA2004.pdf
         
-        r = 10
+        r = 1e-4
         cho = tf.cholesky(St_t + tf.eye(dim) * r)
         inv_cho = tf.matrix_inverse(cho)
         evals_t = tf.linalg.eigvalsh(inv_cho * Sb_t * tf.transpose(inv_cho + tf.eye(dim) * r))  # Sb_t, St_t # SIMPLIFICATION OF THE EQP USING cholesky
@@ -201,7 +192,7 @@ if __name__ == '__main__':
     outdim_size = 10
 
     # the parameters for training the network
-    epoch_num = 1
+    epoch_num = 10
     batch_size = 100
 
     # the regularization parameter of the network
@@ -239,6 +230,6 @@ if __name__ == '__main__':
     x_test_new = model.predict(x_test)
 
     # Training and testing of SVM with linear kernel on the new features
-    #[train_acc, test_acc] = svm_classify(x_train_new, y_train, x_test_new, y_test, C=C)
-    #print("Accuracy on train data is:", train_acc * 100.0)
-    #print("Accuracy on test data is:", test_acc * 100.0)
+    [train_acc, test_acc] = svm_classify(x_train_new, y_train, x_test_new, y_test, C=C)
+    print("Accuracy on train data is:", train_acc * 100.0)
+    print("Accuracy on test data is:", test_acc * 100.0)
