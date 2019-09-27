@@ -1,0 +1,7 @@
+// {
+//     "SklearnKerasRegressor":["LogisticRegression"]
+// }
+
+{
+    "LogisticRegression": ["SklearnKerasClassifier"]
+}

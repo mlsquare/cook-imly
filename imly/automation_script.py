@@ -5,11 +5,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import mean_squared_error
 from imly import dope
+from mlsquare import imly
 import copy
 import json
 import itertools
 import matplotlib.pyplot as plt
 from utils.correlations import concordance_correlation_coefficient as ccc
+import onnxmltools
 
 model_mappings = {
     'linear_regression': 'LinearRegression',
@@ -108,6 +110,8 @@ def write_to_mastersheet(data, X, Y, exp_results):
                           exp_results['kfold'])
     worksheet.update_cell(row_nb+1, worksheet.find("plots").col,
                           exp_results['fig_url'])
+    # worksheet.update_cell(row_nb+1, worksheet.find("onnx_model").col,
+    #                       exp_results['model_url'])
     worksheet.update_cell(row_nb+1, worksheet.find("correlation").col,
                           exp_results['correlation'])
     worksheet.update_cell(row_nb+1, worksheet.find("type").col, data['type'])
@@ -123,14 +127,15 @@ def run_imly(dataset_info, model_name, X, Y, test_size, **kwargs):
     fig_url = 'NA'
     kwargs.setdefault('params', {})
     x_train, x_test, y_train, y_test = train_test_split(
-        X, Y, test_size=test_size, random_state=0)
+        X, Y, stratify=Y,
+        test_size=test_size, random_state=0)
 
     for key, value in model_mappings.items():
         if key == model_name:
             name = value
 
-    # module = __import__('sklearn.linear_model', fromlist=[name])
-    module = __import__('sklearn.discriminant_analysis', fromlist=[name]) # Find a fix!
+    module = __import__('sklearn.linear_model', fromlist=[name])
+    # module = __import__('sklearn.discriminant_analysis', fromlist=[name]) # Find a fix!
     imported_module = getattr(module, name)
     model = imported_module
     model_instance = model()
@@ -149,16 +154,24 @@ def run_imly(dataset_info, model_name, X, Y, test_size, **kwargs):
     primal_params = primal_model.get_params(deep=True)
 
     # Keras
-    x_train = x_train.values  # Talos accepts only numpy arrays
-    m = dope(base_model)
+    # x_train = x_train.values  # Talos accepts only numpy arrays
+    m = imly.dope(base_model)
     if kwargs['params'] == {} and kwargs['space'] == False:
-        m.fit(x_train, y_train.values.ravel())
+        # m.fit(x_train, y_train.values.ravel())
+        m.fit(x_train, y_train)
     elif kwargs['space']:
-        m.fit(x_train, y_train.values.ravel(), space=kwargs['space'])
+        # m.fit(x_train, y_train.values.ravel(), space=kwargs['space'])
+        m.fit(x_train, y_train, space=kwargs['space'])
     else:
-        m.fit(x_train, y_train.values.ravel(), params=kwargs['params'])
+        # m.fit(x_train, y_train.values.ravel(), params=kwargs['params'])
+        m.fit(x_train, y_train, params=kwargs['params'])
 
     keras_score = m.score(x_test, y_test)
+
+    # onnx_model = m.save()
+    # file_path, file_name = get_file_details(dataset_info, file_ext='.onnx')
+    # onnxmltools.utils.save_model(onnx_model, file_path)
+    # model_url = write_file_to_s3(file_path, file_name, bucket_name='mlsquare-models')
 
     # Create plot and write to s3 bucket #
     # TODO
@@ -198,6 +211,7 @@ def run_imly(dataset_info, model_name, X, Y, test_size, **kwargs):
         'scikit': primal_score,
         'kfold': None,
         'fig_url': fig_url,
+        # 'model_url': model_url,
         'correlation': correlation
     }
 
@@ -207,15 +221,25 @@ def run_imly(dataset_info, model_name, X, Y, test_size, **kwargs):
         write_to_mastersheet(dataset_info, X, Y, exp_results)
 
 
-def get_fig_details(dataset_info):
+def get_file_details(dataset_info, file_ext):
     '''
-    Extracts and returns the figure name and fig_path
+    Extracts and returns the file name and file_path
     when provided with the dataset info.
-    fig_name = <dataset_name>_<algorithm_name>
+    file_name = <dataset_name>_<algorithm_name>.file_ext
     '''
-    fig_name = ('_').join([dataset_info['name'], dataset_info['activation_function']]) + '.pdf'
-    fig_path = '../data/' + fig_name
-    return fig_name, fig_path
+    file_name = ('_').join([dataset_info['name'], dataset_info['activation_function']]) + file_ext
+    file_path = '../data/' + file_name
+    return file_name, file_path
+
+# def get_fig_details(dataset_info):
+#     '''
+#     Extracts and returns the figure name and fig_path
+#     when provided with the dataset info.
+#     fig_name = <dataset_name>_<algorithm_name>
+#     '''
+#     fig_name = ('_').join([dataset_info['name'], dataset_info['activation_function']]) + '.pdf'
+#     fig_path = '../data/' + fig_name
+#     return fig_name, fig_path
 
 
 def plot_correlation(sklearn_pred, keras_pred):
@@ -267,7 +291,7 @@ def plot_confusion_matrix(cm, classes,
     return fig
 
 
-def write_plot_to_s3(fig_path, fig_name):
+def write_file_to_s3(file_path, file_name, bucket_name):
 
     '''
      Writes the plot to s3 bucket from mentioned dir path and
@@ -278,7 +302,7 @@ def write_plot_to_s3(fig_path, fig_name):
     import sys
     from boto.s3.key import Key
     # from boto.s3.key import Key
-    bucket_name = 'mlsquare-pdf'
+    # bucket_name = 'mlsquare-pdf'
     credentials_json = json.load(open('../data/aws_credentials.json'))
     AWS_ACCESS_KEY_ID = credentials_json['AWS_ACCESS_KEY_ID']
     AWS_SECRET_ACCESS_KEY = credentials_json['AWS_SECRET_ACCESS_KEY']
@@ -287,23 +311,62 @@ def write_plot_to_s3(fig_path, fig_name):
     # bucket_name = AWS_ACCESS_KEY_ID.lower() + '-dump'
     conn = boto.connect_s3(AWS_ACCESS_KEY_ID,
                            AWS_SECRET_ACCESS_KEY, host=REGION_HOST)
-    bucket = conn.get_bucket('mlsquare-pdf', validate=False)
+    bucket = conn.get_bucket(bucket_name, validate=False)
 
     # bucket = conn.create_bucket(bucket_name,
     #     location=boto.s3.connection.Location.DEFAULT)
 
-    print('Uploading %s to Amazon S3 bucket %s' % (fig_path, bucket_name))
+    print('Uploading %s to Amazon S3 bucket %s' % (file_path, bucket_name))
 
     def percent_cb(complete, total):
         sys.stdout.write('.')
         sys.stdout.flush()
 
     k = Key(bucket)
-    k.key = fig_name
-    k.set_contents_from_filename(fig_path,
+    k.key = file_name
+    k.set_contents_from_filename(file_path,
                                  cb=percent_cb, num_cb=10)  # upload file
     url = k.generate_url(expires_in=0, query_auth=False)
     return url
+
+
+# def write_plot_to_s3(fig_path, fig_name):
+
+#     '''
+#      Writes the plot to s3 bucket from mentioned dir path and
+#      returns the s3 url
+#     '''
+
+#     import boto
+#     import sys
+#     from boto.s3.key import Key
+#     # from boto.s3.key import Key
+#     bucket_name = 'mlsquare-pdf'
+#     credentials_json = json.load(open('../data/aws_credentials.json'))
+#     AWS_ACCESS_KEY_ID = credentials_json['AWS_ACCESS_KEY_ID']
+#     AWS_SECRET_ACCESS_KEY = credentials_json['AWS_SECRET_ACCESS_KEY']
+#     REGION_HOST = 's3.ap-south-1.amazonaws.com'
+
+#     # bucket_name = AWS_ACCESS_KEY_ID.lower() + '-dump'
+#     conn = boto.connect_s3(AWS_ACCESS_KEY_ID,
+#                            AWS_SECRET_ACCESS_KEY, host=REGION_HOST)
+#     bucket = conn.get_bucket('mlsquare-pdf', validate=False)
+
+#     # bucket = conn.create_bucket(bucket_name,
+#     #     location=boto.s3.connection.Location.DEFAULT)
+
+#     print('Uploading %s to Amazon S3 bucket %s' % (fig_path, bucket_name))
+
+#     def percent_cb(complete, total):
+#         sys.stdout.write('.')
+#         sys.stdout.flush()
+
+#     k = Key(bucket)
+#     k.key = fig_name
+#     k.set_contents_from_filename(fig_path,
+#                                  cb=percent_cb, num_cb=10)  # upload file
+#     url = k.generate_url(expires_in=0, query_auth=False)
+#     return url
 
 # TODO
 # Add options in the sheet for test case runs.
