@@ -6,6 +6,10 @@ import numpy as np
 import pandas as pd
 import sklearn
 from sklearn.preprocessing import StandardScaler
+from keras import backend as K
+from keras.utils import to_categorical
+from keras.models import Model
+from keras.layers import Input, LSTM, Dense, Concatenate, concatenate, GRU
 
 # Load data
 iris = load_iris()
@@ -39,17 +43,12 @@ for i, j in enumerate(X):
             path_as_string.append('L')
             if clf.tree_.feature[node] > 0:
                 dec_feat.append(clf.tree_.feature[node])
-            # else:
-                # dec_feat.append(0)
         elif node in right_nodes:
             path_as_string.append('R')
             if clf.tree_.feature[node] > 0:
                 dec_feat.append(clf.tree_.feature[node])
-            # else:
-                # dec_feat.append(0)
 
     path_as_string.append('E')
-    # dec_feat.append(0)
     dec_feat = np.array(dec_feat)
     path_as_string = ' '.join(path_as_string)
     path_column = np.append(path_column, path_as_string)
@@ -119,7 +118,6 @@ for i, sentence in enumerate(sentences):
     for t, char in enumerate(sentence):
         x_sent[i, t, char_indices[char]] = 1
     y_chars[i, char_indices[next_chars[i]]] = 1
-    # y_dec[i, next_dec_feature[i]] = 1
     x_feat[i, :] = features[i]
     y_feat[i, labels[i]] = 1
 
@@ -132,8 +130,6 @@ for i, feat in enumerate(feat_seq):
 
 
 def paths_model(initialize=True, rnn_cell= 'gru',latent_dim = 5):
-    from keras.models import Model
-    from keras.layers import Input, LSTM, Dense, Concatenate, concatenate, Flatten, GRU
     latent_dim = latent_dim
 
     hidden_state_x = Input(shape=(latent_dim,),name='hidden_x')
@@ -158,8 +154,6 @@ def paths_model(initialize=True, rnn_cell= 'gru',latent_dim = 5):
 
 # Define all the three models
 def features_model(initialize=True, rnn_cell= 'gru',latent_dim = 5):
-    from keras.models import Model
-    from keras.layers import Input, LSTM, Dense, Concatenate, concatenate, Flatten, GRU
     latent_dim = latent_dim
 
     hidden_state_x = Input(shape=(latent_dim,),name='hidden_x')
@@ -181,8 +175,6 @@ def features_model(initialize=True, rnn_cell= 'gru',latent_dim = 5):
     return model
 
 def label_model(feature_size = 4, latent_dim = 5):
-    from keras.models import Model
-    from keras.layers import Input, LSTM, Dense, Concatenate, concatenate, Flatten, GRU
     feature_size = feature_size
     h1_size = latent_dim
     input_x_features = Input(shape=(feature_size,),name='ip_x')
@@ -193,7 +185,6 @@ def label_model(feature_size = 4, latent_dim = 5):
     model = Model(input_x_features,output_labels)
     return model
 
-from keras import backend as K
 
 def get_hidden_x(x,model,layer_num=3):
     def get_hidden_x_inner(model,layer_num=layer_num):
@@ -203,8 +194,6 @@ def get_hidden_x(x,model,layer_num=3):
 path_m = paths_model()
 label_m = label_model()
 features_m = features_model()
-
-from keras.utils import to_categorical
 
 y_cat = to_categorical(y)
 
