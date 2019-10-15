@@ -1,3 +1,7 @@
+# Approach 3
+# Path model is driven by two inputs - path and decision features.
+
+from keras import backend as K
 from sklearn.datasets import load_iris
 from sklearn.model_selection import cross_val_score
 from sklearn.tree import DecisionTreeClassifier
@@ -6,16 +10,10 @@ import numpy as np
 import pandas as pd
 import sklearn
 from sklearn.preprocessing import StandardScaler
-from keras import backend as K
 from keras.utils import to_categorical
-from keras.models import Model
-from keras.layers import Input, LSTM, Dense, Concatenate, concatenate, GRU
-import sys
-import copy
 from sklearn.metrics import jaccard_score, accuracy_score
 import distance
 
-# Load data
 iris = load_iris()
 X = iris['data']
 y = iris['target']
@@ -27,7 +25,6 @@ X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
     X, y, test_size=0.6, shuffle=True)
 clf.fit(X_train, y_train)
 
-# Prepare data
 left_nodes = clf.tree_.children_left[clf.tree_.children_left > 0]
 right_nodes = clf.tree_.children_right[clf.tree_.children_right > 0]
 node_indicator = clf.decision_path(X)
@@ -91,7 +88,9 @@ def get_path_lengths(t): return len(t.split())
 
 paths_lengths = np.array([get_path_lengths(xi) for xi in path_sequence])
 
-vocab_size_feat = 5
+# Modified for decision feature prediction
+
+vocab_size_feat = 5  # Or is it 4(should 0 be counted in)?
 vocab_size_sent = 4
 vocab_trimmed = 3
 label_size = 3
@@ -102,6 +101,7 @@ maxlen_seq = maxlen-1
 
 sentences = []
 feat_seq = []
+ext_feat_seq = []
 trimmed_path_seq = []
 next_chars = []
 next_dec_feature = []
@@ -128,6 +128,8 @@ for i in range(0, len(df)):
         feat_seq.append(curr_dec_feat[0:k])
         trimmed_path_seq.append(curr_trimmed_path[0:k])
         next_trimmed_char.append(curr_trimmed_path[k])
+    for k in range(0, len(curr_dec_feat)):
+        ext_feat_seq.append(curr_dec_feat[0:k+1])
 print('Vectorization...')
 
 x_sent = np.zeros((len(sentences), maxlen, vocab_size_sent), dtype=np.bool)
@@ -138,6 +140,9 @@ x_trimmed_sent = np.zeros(
 x_feat = np.zeros((len(sentences), feature_size), dtype=np.float)
 x_feat_seq = np.zeros((len(feat_seq), feature_size), dtype=np.float)
 
+x_ext_seq = np.zeros((len(ext_feat_seq), maxlen_seq, vocab_size_feat),
+                     dtype=np.bool)  # Verify maxlen in this case
+
 y_chars = np.zeros((len(sentences), vocab_size_sent), dtype=np.bool)
 y_seq = np.zeros((len(feat_seq), vocab_size_feat), dtype=np.bool)
 y_trimmed_chars = np.zeros((len(feat_seq), vocab_trimmed), dtype=np.bool)
@@ -145,7 +150,6 @@ y_trimmed_chars = np.zeros((len(feat_seq), vocab_trimmed), dtype=np.bool)
 y_feat = np.zeros((len(sentences), label_size), dtype=np.float)
 y_feat_seq = np.zeros((len(feat_seq), label_size), dtype=np.float)
 
-# Populate inputs
 for i, sentence in enumerate(sentences):
     for t, char in enumerate(sentence):
         x_sent[i, t, char_indices[char]] = 1
@@ -165,6 +169,10 @@ for i, sentence in enumerate(trimmed_path_seq):
         x_trimmed_sent[i, t, trimmed_char_indices[char]] = 1
     y_trimmed_chars[i, trimmed_char_indices[next_trimmed_char[i]]] = 1
 
+for i, feat in enumerate(ext_feat_seq):
+    for t, val in enumerate(feat):
+        x_ext_seq[i, t, val] = 1
+
 
 def paths_model(initialize=True, rnn_cell='gru', latent_dim=5):
     from keras.models import Model
@@ -174,38 +182,9 @@ def paths_model(initialize=True, rnn_cell='gru', latent_dim=5):
     hidden_state_x = Input(shape=(latent_dim,), name='hidden_x')
     input_sent_features = Input(
         shape=(maxlen, vocab_size_sent), name='ip_sent')
-    # input_path/cutpoint/feat_features --> triplet tuple
-    if rnn_cell == 'gru':
-        RNN = GRU
-    else:
-        RNN = LSTM
-
-    decoder = RNN(latent_dim, return_state=False,
-                  return_sequences=False, name='gru_sent')
-    if initialize:
-        decoder_outputs = decoder(
-            input_sent_features, initial_state=hidden_state_x)
-    else:
-        decoder_outputs = decoder(input_sent_features)
-
-    merge_layer = concatenate([hidden_state_x, decoder_outputs], name='cat')
-    # concat -- All three with hidden_state_x
-    output_chars = Dense(
-        vocab_size_sent, activation='softmax', name='op_sent')(merge_layer)
-    model = Model([hidden_state_x, input_sent_features], output_chars)
-    return model
-
-
-def features_model(initialize=True, rnn_cell='gru', latent_dim=5):
-    from keras.models import Model
-    from keras.layers import Input, LSTM, Dense, Concatenate, concatenate, Flatten, GRU
-    latent_dim = latent_dim
-
-    hidden_state_x = Input(shape=(latent_dim,), name='hidden_x')
-    input_sent_features = Input(
-        shape=(maxlen_seq, vocab_trimmed), name='ip_sent')
     input_seq_features = Input(
         shape=(maxlen_seq, vocab_size_feat), name='ip_seq')
+    # input_path/cutpoint/feat_features --> triplet tuple
     if rnn_cell == 'gru':
         RNN = GRU
     else:
@@ -226,10 +205,39 @@ def features_model(initialize=True, rnn_cell='gru', latent_dim=5):
 
     merge_layer = concatenate(
         [hidden_state_x, decoder_outputs_1, decoder_outputs_2], name='cat')
+    # concat -- All three with hidden_state_x
     output_chars = Dense(
-        vocab_size_feat, activation='softmax', name='op_sent')(merge_layer)
+        vocab_size_sent, activation='softmax', name='op_sent')(merge_layer)
     model = Model([hidden_state_x, input_sent_features,
                    input_seq_features], output_chars)
+    return model
+
+
+def features_model(initialize=True, rnn_cell='gru', latent_dim=5):
+    from keras.models import Model
+    from keras.layers import Input, LSTM, Dense, Concatenate, concatenate, Flatten, GRU
+    latent_dim = latent_dim
+
+    hidden_state_x = Input(shape=(latent_dim,), name='hidden_x')
+    input_sent_features = Input(
+        shape=(maxlen_seq, vocab_size_feat), name='ip_sent')
+    if rnn_cell == 'gru':
+        RNN = GRU
+    else:
+        RNN = LSTM
+
+    decoder = RNN(latent_dim, return_state=False,
+                  return_sequences=False, name='gru_sent')
+    if initialize:
+        decoder_outputs = decoder(
+            input_sent_features, initial_state=hidden_state_x)
+    else:
+        decoder_outputs = decoder(input_sent_features)
+
+    merge_layer = concatenate([hidden_state_x, decoder_outputs], name='cat')
+    output_chars = Dense(
+        vocab_size_feat, activation='softmax', name='op_sent')(merge_layer)
+    model = Model([hidden_state_x, input_sent_features], output_chars)
     return model
 
 
@@ -272,16 +280,15 @@ x_latent = get_hidden_x(x_feat, model=label_m)
 
 path_m.compile(optimizer='adam', loss='categorical_crossentropy',
                metrics=['accuracy'])
-path_m.fit([x_latent, x_sent], y_chars, batch_size=20,
-           epochs=200, verbose=0, shuffle=True)
+path_m.fit([x_latent, x_sent, x_ext_seq], y_chars,
+           batch_size=20, epochs=200, verbose=0, shuffle=True)
 
 x_latent = get_hidden_x(x_feat_seq, model=label_m)
 
 features_m.compile(
     optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-features_m.fit([x_latent, x_trimmed_sent, x_seq], y_seq,
-               batch_size=20, epochs=300, verbose=0, shuffle=True)
-
+features_m.fit([x_latent, x_seq], y_seq, batch_size=20,
+               epochs=300, verbose=0, shuffle=True)
 
 latent_dim = 5
 
@@ -306,37 +313,44 @@ def sample_paths(x, path_model=path_m, label_model=label_m, latent_dim=latent_di
     cont = True
     text = [token]
     seq = [feat_tok]
+    # feat = []
     x_sent = np.zeros((1, maxlen, vocab_size_sent), dtype=np.bool)
     x_seq = np.zeros((1, maxlen_seq, vocab_size_feat), dtype=np.bool)
-    x_trimmed_sent = np.zeros((1, maxlen_seq, vocab_trimmed), dtype=np.bool)
+    x_ext_seq = np.zeros((1, maxlen_seq, vocab_size_feat), dtype=np.bool)
     x_latent = get_hidden_x(x_f, model=label_model)
     x_latent = x_latent.reshape(1, latent_dim)
     x_sent[0, 0, char_indices[token]] = 1
     x_seq[0, 0, feat_tok] = 1
+    # x_seq[0,0,feat_tok] = 1
     pred = label_model.predict(x_f)
     label = [np.argmax(pred[0])]
     index = 1
-    while cont & (index < maxlen):
-        pred = path_model.predict([x_latent, x_sent])
+    while cont & (index < maxlen_seq):
+        pred_feat = features_m.predict([x_latent, x_seq])
+        pred_val = np.argmax(pred_feat[0])
+        x_seq[0, index, pred_val] = 1
+        next_val = pred_val
+        seq.append(next_val)
+        index += 1
+        if next_val == 0:
+            cont = False
+    index = 0
+    cont = True
+    # x_ext_seq[0, 0, seq[0]] = 1
+    # Setting this to maxlen will break the code(len diff - seq vs sent)
+    while cont & (index < len(seq)):
+        x_ext_seq[0, index, seq[index]] = 1
+        pred = path_model.predict([x_latent, x_sent, x_ext_seq])
         char_index = np.argmax(pred[0])
-        x_sent[0, index, char_index] = 1
+        x_sent[0, index+1, char_index] = 1
         next_char = indices_char[char_index]
         text.append(next_char)
         index += 1
         if next_char == 'E':
             cont = False
-
-    index = 1
-    x_trimmed_sent[0, 0, trimmed_char_indices[text[1]]] = 1
-    while (index < len(text)-1):
-        pred_feat = features_m.predict([x_latent, x_trimmed_sent, x_seq])
-        pred_val = np.argmax(pred_feat[0])
-        x_seq[0, index, pred_val] = 1
-        x_trimmed_sent[0, index, trimmed_char_indices[text[index+1]]] = 1
-        next_val = pred_val
-        seq.append(next_val)
-        index += 1
     return [text, label, seq]
+
+# def predict_decision_feature(x, path_step)
 
 
 count = []
