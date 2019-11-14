@@ -4,6 +4,7 @@ from keras.models import Model
 from keras.layers import Input, LSTM, Dense, Concatenate, concatenate, Flatten, GRU
 from keras.utils import to_categorical
 from sklearn.metrics import jaccard_score
+from nltk.translate.bleu_score import sentence_bleu
 import distance
 import numpy as np
 
@@ -201,6 +202,7 @@ j_coeff_feat = []
 l_dist = []
 pred_feat_list = []
 pred_feat_accuracy = []
+bleu_score = []
 for i in range(150):
     curr_feat = np.array([df.iloc[i, 0:4]])
     path, label, seq = sample_paths(curr_feat)
@@ -210,6 +212,9 @@ for i in range(150):
     actual_path = df.iloc[i, 4].split()
     actual_path_tok = [char_indices[char] for char in actual_path]
     pred_path_tok = [char_indices[char] for char in path]
+    print('actual_path--', actual_path)
+    print('path--', path)
+    bleu_score.append(sentence_bleu([actual_path], path))
     j_coeff.append(get_j_coeff(actual_path_tok, pred_path_tok))
     j_coeff_feat.append(get_j_coeff(df.iloc[i, 6], seq))
     l_dist.append(distance.levenshtein(
@@ -222,3 +227,4 @@ print('\nLabel accuracy - ', np.mean(count))
 print('Path metric (Jaccard) - ', np.mean(j_coeff))
 print('Path metric (Levensthein) - ', np.mean(l_dist))
 print('Decision feature metric (Jaccard) - ', np.mean(j_coeff_feat))
+print('Bleu score of paths - ', np.mean(bleu_score))
