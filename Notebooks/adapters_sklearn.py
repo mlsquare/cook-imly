@@ -5,118 +5,6 @@ from ..utils.functions import _parse_params
 import pickle
 import onnxmltools
 import numpy as np
-
-import tensorflow as tf
-from keras.utils import to_categorical
-
-class SklearnKerasDecompose():
-    def __init__(self, proxy_model, primal_model, **kwargs):
-        self.primal_model = primal_model
-        self.params = None ## Temporary!
-        self.proxy_model = proxy_model
-        
-    def fit(self, X, y=None, **kwargs):
-        self.fit_transform(X)
-        return self
-    
-    def fit_transform(self, X, y=None,**kwargs):
-        kwargs.setdefault('full_matrices', False)
-        kwargs.setdefault('params', self.params)
-        kwargs.setdefault('space', False)
-        kwargs.setdefault('compute_uv', True)
-        kwargs.setdefault('name', None)
-        self.params = kwargs['params']
-        X = np.array(X)
-        y = np.array(y)
-        
-        primal_model = self.primal_model
-        self.proxy_model.num_components= primal_model.n_components
-        
-        sess= tf.Session()#for TF  1.13
-        s,u,v= sess.run(tf.linalg.svd(X))#for TF  1.13
-        #s: singular values
-        #u: normalised projection distances
-        #v: decomposition/projection orthogonal axes
-        
-        self.proxy_model.components_= v[:self.proxy_model.num_components,:]#analogous to TruncatedSVD().components_ Or primal_model.components_ Or Vh component from randomised SVD
-        #Sigma = s[:self.proxy_model.num_components]
-        X_transformed = u[:,:self.proxy_model.num_components] * s[:self.proxy_model.num_components]
-        self.singular_values_ = s[:self.proxy_model.num_components]# Store the n_components singular values            
-        return X_transformed
-    
-    def explained_variance_(self):
-        print('Method not implemented yet!')
-        
-    def explained_variance_ratio_(self):
-        print('Method not implemented yet!')    
-    
-    def explain(self, **kwargs):
-        # @param: SHAP or interpret
-        print('Coming soon...')
-
-    
-class SklearnKerasDecompose_1():
-    def __init__(self, proxy_model, primal_model, **kwargs):
-        self.primal_model = primal_model
-        self.params = None ## Temporary!
-        self.proxy_model = proxy_model
-        
-    def fit(self, X, y=None, **kwargs):
-        self.fit_transform(X)
-        return self
-    
-    def fit_transform(self, X, y=None,**kwargs):
-        pass
-    
-    def pseudo_fit(self, X, y, **kwargs):
-        self.pseudo_fit_transform(X)
-        return self
-    
-    def pseudo_fit_transform(self, X, y,**kwargs):
-        kwargs.setdefault('verbose', 1)
-        kwargs.setdefault('params', self.params)
-        kwargs.setdefault('space', False)
-        kwargs.setdefault('epochs', 64)
-        kwargs.setdefault('batch_size', 32)
-        self.params = kwargs['params']
-        X = np.array(X)
-        y = np.array(y)
-
-        primal_model = self.primal_model
-        self.pronum_components= primal_model.n_components
-        
-        primal_model.fit(X)
-        y_pred = primal_model.transform(X)
-
-        #X, y, y_pred = self.proxy_model.transform_data(X, y, y_pred)
-
-        # This should happen only after transformation.        
-
-        #try:
-        #    self.proxy_model.in_columns = list(X.columns)
-         #   X = np.array(X)
-          #  y = np.array(y)     
-            
-        self.proxy_model.X = X ##  abstract -> model_skeleton
-        self.proxy_model.y = y
-        self.proxy_model.primal = self.primal_model
-        
-        primal_model = self.primal_model
-        
-
-        model = self.proxy_model.create_model()
-        
-        input_list = []
-        
-        for idx in range(X.shape[1]):
-            input_list.append(to_categorical(X[:,idx], num_classes=np.unique(X[:,idx]).shape[0]))
-        
-        
-        self.final_model = model.fit(input_list, y_pred, epochs=kwargs['epochs'],
-                                     batch_size=kwargs['batch_size'],
-                                     verbose=kwargs['verbose'])
-        
-        return self.final_model
     
 class SklearnKerasClassifier():
     """
@@ -249,7 +137,7 @@ class SklearnKerasClassifier():
         return self.final_model.summary()
 
 
-
+from ..architectures import sklearn
 class SklearnKerasRegressor():
     """
 	Adapter to connect sklearn regressor algorithms with keras models.
@@ -311,6 +199,11 @@ class SklearnKerasRegressor():
                 raise TypeError("Params should be of type 'dict'")
             self.params = _parse_params(self.params, return_as='flat')
             self.proxy_model.update_params(self.params)
+
+        #if self.proxy_model.__class__.__name in ['SVD', 'PCA']:
+        if isinstance(self.proxy_model, (sklearn.DimensionalityReductionModel)):#Triggers when adapter is being used for matrix decomposition apis
+            return self.proxy_model.fit_transform(X)
+        
         primal_model = self.primal_model
         primal_model.fit(X, y)
         y_pred = primal_model.predict(X)
@@ -325,6 +218,9 @@ class SklearnKerasRegressor():
         return self.final_model  # Not necessary.
 
     def score(self, X, y, **kwargs):
+        if isinstance(self.proxy_model, (sklearn.DimensionalityReductionModel)):
+            raise AttributeError("'SklearnKerasRegressor' object has no attribute 'score'")
+
         score = self.final_model.evaluate(X, y, **kwargs)
         return score
 
@@ -334,6 +230,9 @@ class SklearnKerasRegressor():
         1) Write a 'filter_sk_params' function(check keras_regressor wrapper) if necessary.
         2) Data checks and data conversions
         '''
+        if isinstance(self.proxy_model, (sklearn.DimensionalityReductionModel)):
+            raise AttributeError("'SklearnKerasRegressor' object has no attribute 'predict'")
+            
         pred = self.final_model.predict(X)
         return pred
 

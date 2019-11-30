@@ -86,50 +86,25 @@ class GeneralizedLinearModel(BaseModel):
         return self._adapter
 
     
-@registry.register
-class SVD_1(GeneralizedLinearModel):
-    def __init__(self):
-        self.adapter = SklearnKerasDecompose_1
-        self.module_name = 'sklearn'  # Rename the variable
-        self.name = 'xyz'#'TruncatedSVD'
-        self.version = 'default'
-        model_params = {'layer_1': {'units': 1, ## Make key name private - '_layer'
-                                    'l1': 0,
-                                    'l2': 0},
-                        'activation': 'sigmoid',
-                        'optimizer': 'sgd',
-                        'loss': 'binary_crossentropy'
-                        }
 
-        self.set_params(params=model_params, set_by='model_init')
-    def create_model(self, **kwargs):
-        model_params = _parse_params(self._model_params, return_as='nested')
-        #model = Sequential()
-        
-        n_inputs= self.X.shape[1] or self.X.values.shape[1]#be the input be pandas df or np array
-        embedding_size = self.num_components
-        in_layers = list()
-        lat_layers=list()
-        
-        for n in range(n_inputs):
-            #nunique= np.unique(x[:,0]).shape[0]
-            in_layers.append(Input(shape= (np.unique(self.X[:,n]).shape[0],), name= 'input_l{}'.format(n) or self.in_columns[n]))#shape equals unique num of vals in each field
-            lat_layers.append(Dense(embedding_size, name='latent_embed{}'.format(n) or 'latent_embed{}'.format(self.in_columns[n]))(in_layers[n]))
-            
-        
-        merge_layer= keras.layers.dot([lat_layers[0], lat_layers[1]], axes=1)# assuming only 2 Input layers ?
-        predictions = Dense(1, activation=model_params['activation'])(merge_layer)
-        
-        model = Model(inputs=in_layers, outputs= predictions)
-        model.compile(loss=model_params['loss'], optimizer=model_params['optimizer'],  metrics=['accuracy'])
-        
-        return model
-        
+from abc import abstractmethod
+import tensorflow as tf
+import pandas
+
+class DimensionalityReductionModel:
+    @abstractmethod
+    def fit(self, X, y= None):
+        """Needs Implementation in sub classes"""
+    @abstractmethod
+    def fit_transform(self, X, y=None):
+        """Needs Implementation in sub classes"""
+
+
 @registry.register
-class SVD(GeneralizedLinearModel):
+class SVD(DimensionalityReductionModel, GeneralizedLinearModel):
     def __init__(self):
-        self.adapter = SklearnKerasDecompose
-        self.module_name = 'sklearn'  # Rename the variable
+        self.adapter = SklearnKerasRegressor#SklearnKerasDecompose
+        self.module_name = 'sklearn' 
         self.name = 'TruncatedSVD'
         self.version = 'default'
         model_params = {'full_matrices': False,
@@ -137,9 +112,34 @@ class SVD(GeneralizedLinearModel):
                       'name':None}
 
         self.set_params(params=model_params, set_by='model_init')
-    def create_model(self, **kwargs):
-        pass
-    
+    def fit(self, X, y=None, **kwargs):
+        self.fit_transform(X)
+        return self
+    def fit_transform(self, X, y=None,**kwargs):
+        kwargs.setdefault('full_matrices', False)
+        kwargs.setdefault('compute_uv', True)
+        kwargs.setdefault('name', None)
+        
+        X = np.array(X, dtype= np.float32 if str(X.values.dtype)=='float32' else np.float64) if isinstance(X, pandas.core.frame.DataFrame) else np.array(X, dtype= np.float32 if str(X.dtype)=='float32' else np.float64)#changing to recommended dtype, accomodating dataframe & numpy array
+
+        #X = np.array(X)
+        #y = np.array(y)
+        
+        n_components= self.primal.n_components#using primal attributes passed from adapter
+        n_features = X.shape[1]
+        if n_components>= n_features:
+                raise ValueError("n_components must be < n_features;"
+                                 " got %d >= %d" % (n_components, n_features))
+                
+        sess= tf.Session()#for TF  1.13
+        s,u,v= sess.run(tf.linalg.svd(X, full_matrices=kwargs['full_matrices'], compute_uv=kwargs['compute_uv']))#for TF  1.13
+        
+        self.components_= v[:n_components,:]
+        X_transformed = u[:,:n_components] * s[:n_components]
+        
+        self.singular_values_ = s[:n_components]
+        return X_transformed
+
 
 @registry.register
 class LogisticRegression(GeneralizedLinearModel):
