@@ -87,23 +87,24 @@ class GeneralizedLinearModel(BaseModel):
 
     
 
-from abc import abstractmethod
 import tensorflow as tf
 import pandas
+from abc import abstractmethod
 
 class DimensionalityReductionModel:
     @abstractmethod
     def fit(self, X, y= None):
         """Needs Implementation in sub classes"""
+        
     @abstractmethod
     def fit_transform(self, X, y=None):
         """Needs Implementation in sub classes"""
-
 
 @registry.register
 class SVD(DimensionalityReductionModel, GeneralizedLinearModel):
     def __init__(self):
         self.adapter = SklearnKerasRegressor#SklearnKerasDecompose
+        #self.adapter = SklearnKerasRegressor(DimensionalityReductionModel)#SklearnKerasDecompose
         self.module_name = 'sklearn' 
         self.name = 'TruncatedSVD'
         self.version = 'default'
@@ -115,6 +116,7 @@ class SVD(DimensionalityReductionModel, GeneralizedLinearModel):
     def fit(self, X, y=None, **kwargs):
         self.fit_transform(X)
         return self
+    
     def fit_transform(self, X, y=None,**kwargs):
         kwargs.setdefault('full_matrices', False)
         kwargs.setdefault('compute_uv', True)
@@ -133,12 +135,23 @@ class SVD(DimensionalityReductionModel, GeneralizedLinearModel):
                 
         sess= tf.Session()#for TF  1.13
         s,u,v= sess.run(tf.linalg.svd(X, full_matrices=kwargs['full_matrices'], compute_uv=kwargs['compute_uv']))#for TF  1.13
+        #s: singular values
+        #u: normalised projection distances
+        #v: decomposition/projection orthogonal axes
         
         self.components_= v[:n_components,:]
         X_transformed = u[:,:n_components] * s[:n_components]
         
+        self.explained_variance_= np.var(X_transformed, axis=0)
+        
         self.singular_values_ = s[:n_components]
         return X_transformed
+    
+    def transform(self, X):
+        return X@self.components_.T
+    
+    def inverse_transform(self, X):
+        return np.dot(X, self.components_)
 
 
 @registry.register

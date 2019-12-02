@@ -184,7 +184,7 @@ class SklearnKerasRegressor():
         self.proxy_model = proxy_model
         self.params = None
 
-    def fit(self, X, y, **kwargs):
+    def fit(self, X, y=None, **kwargs):
         self.proxy_model.X = X
         self.proxy_model.y = y
         self.proxy_model.primal = self.primal_model
@@ -201,8 +201,8 @@ class SklearnKerasRegressor():
             self.proxy_model.update_params(self.params)
 
         #if self.proxy_model.__class__.__name in ['SVD', 'PCA']:
-        if isinstance(self.proxy_model, (sklearn.DimensionalityReductionModel)):#Triggers when adapter is being used for matrix decomposition apis
-            return self.proxy_model.fit_transform(X)
+        if isinstance(self.proxy_model, (sklearn.DimensionalityReductionModel)):
+            return self.proxy_model.fit(X)
         
         primal_model = self.primal_model
         primal_model.fit(X, y)
@@ -216,14 +216,31 @@ class SklearnKerasRegressor():
                                           epochs=kwargs['epochs'], batch_size=kwargs['batch_size'],
                                           verbose=kwargs['verbose'])
         return self.final_model  # Not necessary.
-
+    
+    def transform(self, X):
+        if not isinstance(self.proxy_model, (sklearn.DimensionalityReductionModel)):
+            raise AttributeError("'SklearnKerasRegressor' object has no attribute 'transform'")
+        return self.proxy_model.transform(X)
+    
+    def fit_transform(self, X,y=None):
+        if not isinstance(self.proxy_model, (sklearn.DimensionalityReductionModel)):
+            raise AttributeError("'SklearnKerasRegressor' object has no attribute 'fit_transform'")
+        self.proxy_model.primal = self.primal_model
+        return self.proxy_model.fit_transform(X)
+    
+    def inverse_transform(self, X):
+        if not isinstance(self.proxy_model, (sklearn.DimensionalityReductionModel)):
+            raise AttributeError("'SklearnKerasRegressor' object has no attribute 'inverse_transform'")
+        return self.proxy_model.inverse_transform(X)
+    
+    
     def score(self, X, y, **kwargs):
         if isinstance(self.proxy_model, (sklearn.DimensionalityReductionModel)):
             raise AttributeError("'SklearnKerasRegressor' object has no attribute 'score'")
 
         score = self.final_model.evaluate(X, y, **kwargs)
         return score
-
+    
     def predict(self, X):
         '''
         Pending:
@@ -241,6 +258,8 @@ class SklearnKerasRegressor():
             raise ValueError(
                 'Name Error: to save the model you need to specify the filename')
 
+        if isinstance(self.proxy_model, (sklearn.DimensionalityReductionModel)):
+            raise AttributeError("'SklearnKerasRegressor' object has no attribute 'save'")
         pickle.dump(self.final_model, open(filename + '.pkl', 'wb'))
 
         self.final_model.save(filename + '.h5')
