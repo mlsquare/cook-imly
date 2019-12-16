@@ -1,3 +1,6 @@
+# Approach 2
+# Feature model is driven by two inputs - paths and decision features
+
 from sklearn.datasets import load_iris
 from sklearn.model_selection import cross_val_score
 from sklearn.tree import DecisionTreeClassifier
@@ -366,3 +369,12 @@ print('\nLabel accuracy - ', np.mean(count))
 print('Path metric (Jaccard) - ', np.mean(j_coeff))
 print('Path metric (Levensthein) - ', np.mean(l_dist))
 print('Decision feature metric (Jaccard) - ', np.mean(j_coeff_feat))
+
+
+# Feature - start token as zero, no end token
+# Decoder from path to feature as hidden_sent
+# Use start token from path_model
+# train/test split - kfold validation as well
+# Rename variables. Basic cleaning up.
+# Do some research on tf.keras vs regular keras
+# Alternate metrics - BLUE score
